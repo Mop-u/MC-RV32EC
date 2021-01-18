@@ -8,8 +8,9 @@ module CompressedInstructionDecode #(
     output [31:0] Immediate,
     output [3:0]  CtrlLSU,
     output        CtrlMultiCycle,
+    output        CtrlALUImm,
     output [4:0]  CtrlALUOp,
-    output [1:0]  CtrlFlagSel,
+    output        CtrlFlagInv,
     output        CtrlPCWriteback,
     output [1:0]  CtrlPCMode
 );
@@ -210,11 +211,12 @@ wire [1:0] EncALUOp  = i[6:5];          // Opcodes from ALUMAIN instruction grou
 wire [1:0] EncSRMode = {1'b1,i[10]};    // Logical/Arithmetic mode select for SRAI/SRLI
 
 // Control signal clean base LUT
-logic [14:0] CtrlSigLookup;
-assign CtrlLSU         = CtrlSigLookup[11+:4];
-assign CtrlMultiCycle  = CtrlSigLookup[10];
-assign CtrlALUOp       = CtrlSigLookup[5+:5];
-assign CtrlFlagSel     = CtrlSigLookup[3+:2];
+logic [13:0] CtrlSigLookup;
+assign CtrlLSU         = CtrlSigLookup[10+:4];
+assign CtrlMultiCycle  = CtrlSigLookup[9];
+assign CtrlALUImm      = CtrlSigLookup[8];
+assign CtrlALUOp       = CtrlSigLookup[4+:4];
+assign CtrlFlagInv     = CtrlSigLookup[3];
 assign CtrlPCWriteback = CtrlSigLookup[2];
 assign CtrlPCMode      = CtrlSigLookup[0+:2];
 always_comb begin
@@ -225,74 +227,74 @@ always_comb begin
     unique case(1'b1)
         // Main Dataloop Ops
         OneHotOp[OH_ALUMAIN]:  // EncALUCat = {1'b0,~|i[6:5]}, EncALUOp = i[6:5]. All register-register instructions.
-            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     LO,    EncALUCat,EncALUOp,LO,     LO,    LO,       PCINC   };
-        OneHotOp[OH_ANDI]:     // Imm goes to ALUIN1.
-            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     HI,      ALUBT,   BTAND, LO,      LO,    LO,       PCINC   };
-        OneHotOp[OH_SRAI_SRLI]:// Choice between SRAI and SRLI is decided by raw instruction bit i[10] @ ALUOpcode lsb. Imm goes to ALUIN1.
-            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     HI,      ALUSH, EncSRMode,LO,     LO,    LO,       PCINC   };
-        OneHotOp[OH_ADDI_NOP]: // Imm goes to ALUIN1.
-            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     HI,      ALUAS,   ASADDS,LO,      LO,    LO,       PCINC   };
-        OneHotOp[OH_SLLI]:     // Imm goes to ALUIN1.
-            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     HI,      ALUSH,   SHSLL, LO,      LO,    LO,       PCINC   };
+            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     LO,    EncALUCat,EncALUOp,LO,   LO,       PCINC   };
+        OneHotOp[OH_ANDI]:     // Imm goes to ALUInB.
+            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     HI,      ALUBT,   BTAND, LO,    LO,       PCINC   };
+        OneHotOp[OH_SRAI_SRLI]:// Choice between SRAI and SRLI is decided by raw instruction bit i[10] @ ALUOpcode lsb. Imm goes to ALUInB.
+            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     HI,      ALUSH,EncSRMode,LO,    LO,       PCINC   };
+        OneHotOp[OH_ADDI_NOP]: // Imm goes to ALUInB.
+            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     HI,      ALUAS,   ASADDS,LO,    LO,       PCINC   };
+        OneHotOp[OH_SLLI]:     // Imm goes to ALUInB.
+            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     HI,      ALUSH,   SHSLL, LO,    LO,       PCINC   };
         OneHotOp[OH_ADD]:      // Straightforward addition (rd = rs1 + rs2)
-            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     LO,      ALUAS,   ASADDS,LO,      LO,    LO,       PCINC   };
-                                //|LSU Mode ?|LSU Sign| LSU | Multi |ALUIN1 ?| ALUOP  |ALUOP | Flag ? | Flag |Link Reg |PC Write|
-                                //|Load:Store| Extend |Width| Cycle |IMM : r2|Category|Opcode|EQ : CMP|Invert|Writeback|  Mode  |
+            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     LO,      ALUAS,   ASADDS,LO,    LO,       PCINC   };
+                                //|LSU Mode ?|LSU Sign| LSU | Multi |ALUInB ?| ALUOP  |ALUOP | Flag |Link Reg |PC Write|
+                                //|Load:Store| Extend |Width| Cycle |IMM : r2|Category|Opcode|Invert|Writeback|  Mode  |
         
-        OneHotOp[OH_LI_LUI]: begin // Imm goes to ALUIN1. Set rs1 to 0 to pass rs2 through the ALU to rd. Diff between LI and LUI already determined by imm formatting
-            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     HI,      ALUBT,   BTOR,  LO,      LO,    LO,       PCINC   }; 
+        OneHotOp[OH_LI_LUI]: begin // Imm goes to ALUInB. Set rs1 to 0 to pass rs2 through the ALU to rd. Diff between LI and LUI already determined by imm formatting
+            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     HI,      ALUBT,   BTOR,  LO,    LO,       PCINC   }; 
             Rs1 = 0;
         end
         OneHotOp[OH_MV]: begin // Set rs1 to 0 to pass rs2 through the ALU to rd (rd = rs2 | 0)
-            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     LO,      ALUBT,   BTOR,  LO,      LO,    LO,       PCINC   };
+            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     LO,      ALUBT,   BTOR,  LO,    LO,       PCINC   };
             Rs1 = 0;
         end
         
         // Stack Pointer Ops
-        OneHotOp[OH_ADDI16SP]: // Imm goes to ALUIN1.
-            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     HI,      ALUAS,   ASADDS,LO,      LO,    LO,       PCINC   };
-        OneHotOp[OH_ADDI4SPN]: begin // Change rs1 to x2, imm goes to ALUIN1. Unsigned addition.
-            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     HI,      ALUAS,   ASADDU,LO,      LO,    LO,       PCINC   };
-            Rs1 = 2;            //|LSU Mode ?|LSU Sign| LSU | Multi |ALUIN1 ?| ALUOP  |ALUOP | Flag ? | Flag |Link Reg |PC Write|
-        end                     //|Load:Store| Extend |Width| Cycle |IMM : r2|Category|Opcode|EQ : CMP|Invert|Writeback|  Mode  |
+        OneHotOp[OH_ADDI16SP]: // Imm goes to ALUInB.
+            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     HI,      ALUAS,   ASADDS,LO,    LO,       PCINC   };
+        OneHotOp[OH_ADDI4SPN]: begin // Change rs1 to x2, imm goes to ALUInB. Unsigned addition.
+            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     HI,      ALUAS,   ASADDU,LO,    LO,       PCINC   };
+            Rs1 = 2;            //|LSU Mode ?|LSU Sign| LSU | Multi |ALUInB ?| ALUOP  |ALUOP | Flag |Link Reg |PC Write|
+        end                     //|Load:Store| Extend |Width| Cycle |IMM : r2|Category|Opcode|Invert|Writeback|  Mode  |
 
 
         // Program Counter Ops
         OneHotOp[OH_J]: begin // ALU is not used, Imm feeds directly to PC in PCJIMM ops.
-            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     LO,      2'b00,   2'b00, LO,      LO,    LO,       PCJIMM  };
+            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     LO,      2'b00,   2'b00, LO,    LO,       PCJIMM  };
             Rd = 0;
         end
         OneHotOp[OH_JAL]: begin // ALU is not used, Imm feeds directly to PC in PCJIMM ops. Rd is set to x1 for storing the link result.
-            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     LO,      2'b00,   2'b00, LO,      LO,    HI,       PCJIMM  };
-            Rd = 1;             //|LSU Mode ?|LSU Sign| LSU | Multi |ALUIN1 ?| ALUOP  |ALUOP | Flag ? | Flag |Link Reg |PC Write|
-        end                     //|Load:Store| Extend |Width| Cycle |IMM : r2|Category|Opcode|EQ : CMP|Invert|Writeback|  Mode  |
+            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     LO,      2'b00,   2'b00, LO,    HI,       PCJIMM  };
+            Rd = 1;             //|LSU Mode ?|LSU Sign| LSU | Multi |ALUInB ?| ALUOP  |ALUOP | Flag |Link Reg |PC Write|
+        end                     //|Load:Store| Extend |Width| Cycle |IMM : r2|Category|Opcode|Invert|Writeback|  Mode  |
         OneHotOp[OH_JR]: begin
-            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     LO,      ALUAS,   ASADDS,LO,      LO,    LO,       PCJREG  };
+            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     LO,      ALUAS,   ASADDS,LO,    LO,       PCJREG  };
             Rd = 0;
         end
         OneHotOp[OH_JALR_EBREAK]: begin // Rd is set to x1 for storing the link result.
-            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     LO,      ALUAS,   ASADDS,LO,      LO,    HI,       PCJREG  };
+            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     LO,      ALUAS,   ASADDS,LO,    HI,       PCJREG  };
             Rd = 1; // Note: EBREAK if rs1==0
         end
         OneHotOp[OH_BEQZ_BNEZ]: begin // Sets rs2 to 0 and passes rs1 through a flag check. i[13] chooses between EQZ/NEZ
-            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     LO,      ALUFL,   BTXOR, HI,      i[13], LO,       PCBRCH  };
-            Rs2 = 0;            //|LSU Mode ?|LSU Sign| LSU | Multi |ALUIN1 ?| ALUOP  |ALUOP | Flag ? | Flag |Link Reg |PC Write|
-            Rd = 0;             //|Load:Store| Extend |Width| Cycle |IMM : r2|Category|Opcode|EQ : CMP|Invert|Writeback|  Mode  |
+            CtrlSigLookup =       {LO,        LO,      LSN,  LO,     LO,      ALUFL,   BTXOR, i[13], LO,       PCBRCH  };
+            Rs2 = 0;            //|LSU Mode ?|LSU Sign| LSU | Multi |ALUInB ?| ALUOP  |ALUOP | Flag |Link Reg |PC Write|
+            Rd = 0;             //|Load:Store| Extend |Width| Cycle |IMM : r2|Category|Opcode|Invert|Writeback|  Mode  |
         end
                                 
         // Load/Store Ops
         OneHotOp[OH_LW]:       // Note: rd is written to later by the load/store unit. (Due to multicycle flag)
-            CtrlSigLookup =       {HI,        LO,      LSW,  HI,     HI,      ALUAS,   ASADDU,LO,      LO,    LO,       PCINC   };
+            CtrlSigLookup =       {HI,        LO,      LSW,  HI,     HI,      ALUAS,   ASADDU, LO,    LO,       PCINC   };
         OneHotOp[OH_SW]: begin // Note: r2 still passes to the load/store unit. Only the ALU sees the immediate instead of r2.
-            CtrlSigLookup =       {LO,        LO,      LSW,  LO,     HI,      ALUAS,   ASADDU,LO,      LO,    LO,       PCINC   };
+            CtrlSigLookup =       {LO,        LO,      LSW,  LO,     HI,      ALUAS,   ASADDU, LO,    LO,       PCINC   };
             Rd = 0;
         end
         OneHotOp[OH_LWSP]:     // Set rs1 to stack pointer x2. Note: rd is written to later by the load/store unit. (Due to multicycle flag)
-            CtrlSigLookup =       {HI,        LO,      LSW,  HI,     HI,      ALUAS,   ASADDU,LO,      LO,    LO,       PCINC   };
+            CtrlSigLookup =       {HI,        LO,      LSW,  HI,     HI,      ALUAS,   ASADDU, LO,    LO,       PCINC   };
         OneHotOp[OH_SWSP]: begin // Set rs1 to stack pointer x2. Note: r2 still passes to the load/store unit. Only the ALU sees the immediate instead of r2.
-            CtrlSigLookup =       {LO,        LO,      LSW,  LO,     HI,      ALUAS,   ASADDU,LO,      LO,    LO,       PCINC   };
-            Rs1 = 2;             //|LSU Mode ?|LSU Sign| LSU | Multi |ALUIN1 ?| ALUOP  |ALUOP | Flag ? | Flag |Link Reg |PC Write|
-            Rd  = 0;             //|Load:Store| Extend |Width| Cycle |IMM : r2|Category|Opcode|EQ : CMP|Invert|Writeback|  Mode  |
+            CtrlSigLookup =       {LO,        LO,      LSW,  LO,     HI,      ALUAS,   ASADDU, LO,    LO,       PCINC   };
+            Rs1 = 2;             //|LSU Mode ?|LSU Sign| LSU | Multi |ALUInB ?| ALUOP  |ALUOP | Flag |Link Reg |PC Write|
+            Rd  = 0;             //|Load:Store| Extend |Width| Cycle |IMM : r2|Category|Opcode|Invert|Writeback|  Mode  |
         end
         
         // Zero the lookup when no valid instruction
