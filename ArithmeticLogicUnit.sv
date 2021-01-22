@@ -29,7 +29,7 @@ genvar i;
 generate
     wire [width:0] AllCarries;
     assign AllCarries[0] = CarryIn;
-    assign AllCarries[width] = CarryOut;
+    assign CarryOut = AllCarries[width];
     for(i=0;i<width;i=i+1) begin : gen_alu
         ALUCell alu_cell (
             .InA       (InA[i]),

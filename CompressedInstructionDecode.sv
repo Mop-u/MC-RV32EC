@@ -9,7 +9,7 @@ module CompressedInstructionDecode #(
     output [3:0]  CtrlLSU,
     output        CtrlMultiCycle,
     output        CtrlALUImm,
-    output [4:0]  CtrlALUOp,
+    output [3:0]  CtrlALUOp,
     output        CtrlFlagInv,
     output        CtrlPCWriteback,
     output [1:0]  CtrlPCMode

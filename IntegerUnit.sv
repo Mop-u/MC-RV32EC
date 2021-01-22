@@ -9,6 +9,7 @@ module IntegerUnit (
 wire [1:0] ALUCat = CtrlALUOp[3:2];
 wire [1:0] ALUSel = CtrlALUOp[1:0];
 
+`include "CtrlSigEnums.sv"
 /*  _______________________________________________________________________________
    |                          2-bit control signal tables                          |
    |-------------------------------------------------------------------------------|
@@ -51,8 +52,8 @@ integer_core_alu (
     .OutC      (OutC)
 );
 
-wire SignedCheck   = ALUSel == AFSUBS;
-wire EqualityCheck = ALUSel == AFEQU;
+wire SignedCheck   = (ALUSel == AFSUBS);
+wire EqualityCheck = (ALUSel == AFEQU);
 wire IsZero = ~|OutC;
 wire DiffSigns = SignedCheck & (Rs1[31] ^ Rs2[31]);
 wire Rs1GreaterEqualRs2 = DiffSigns ? Rs2[31] : CarryOut;
