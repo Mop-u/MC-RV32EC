@@ -19,10 +19,10 @@ module ArithmeticLogicUnit #(
 NAND  1   1   0   1   0
   OR  0   0   0   1   0
  NOR  0   0   x   1   1
- XOR  0   0   x   0   1
- XOR  1   1   x   0   1
-XNOR  0   1   x   0   1
-XNOR  1   0   x   0   1
+XNOR  0   0   x   0   1
+XNOR  1   1   x   0   1
+ XOR  0   1   x   0   1
+ XOR  1   0   x   0   1
 */
 
 genvar i;
@@ -32,14 +32,15 @@ generate
     assign AllCarries[width] = CarryOut;
     for(i=0;i<width;i=i+1) begin : gen_alu
         ALUCell alu_cell (
-            .InA     (InA[i]),
-            .InB     (InB[i]),
-            .CarryIn (AllCarries[i]|FloodCarry),
-            .Or      (Or),
-            .InvertA (InvertA),
-            .InvertB (InvertB),
-            .CarryOut(AllCarries[i+1]),
-            .OutC    (OutC[i])
+            .InA       (InA[i]),
+            .InB       (InB[i]),
+            .CarryIn   (AllCarries[i]),
+            .FloodCarry(FloodCarry),
+            .Or        (Or),
+            .InvertA   (InvertA),
+            .InvertB   (InvertB),
+            .CarryOut  (AllCarries[i+1]),
+            .OutC      (OutC[i])
         );
     end
 endgenerate

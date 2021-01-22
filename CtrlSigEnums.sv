@@ -4,10 +4,10 @@
    |    ALUOP    | Bitwise |     Arith &     |  Shift  |   PC Write    |    LSU    |
    |   Category  |  ALUOP  |    Flag ALUOP   |  ALUOP  |     Mode      |   Width   |
    |-------------|---------|-----------------|---------|---------------|-----------|
- 00|Bitwise ALUBT|Undefined|Signed Sub ASSUBS|Undefined|Inc      PCINC |LSU Nop LSN|
- 01|Add/Sub ALUAS|XOR BTXOR|Signed Add ASADDS|SLL SHSLL|Branch   PCBRCH|Word    LSW|
- 10|Shift   ALUSH|OR  BTOR |Unsign Sub ASSUBU|SRL SHSRL|Jump Reg PCJREG|Half    LSH|
- 11|Flag    ALUFL|AND BTAND|Unsign Add ASADDU|SRA SHSRA|Jump Imm PCJIMM|Byte    LSB|
+ 00|Bitwise ALUBT|Undefined|Signed Sub AFSUBS|SLL SHSLL|Inc      PCINC |LSU Nop LSN|
+ 01|Add/Sub ALUAS|XOR BTXOR|       Add AFADD |Undefined|Branch   PCBRCH|Word    LSW|
+ 10|Shift   ALUSH|OR  BTOR |Unsign Sub AFSUBU|SRL SHSRL|Jump Reg PCJREG|Half    LSH|
+ 11|Flag    ALUFL|AND BTAND|Equality   AFEQU |SRA SHSRA|Jump Imm PCJIMM|Byte    LSB|
    \------------------------------------------------------------------------------/
 */
 typedef enum bit[1:0] {
@@ -23,14 +23,14 @@ typedef enum bit[1:0] {
     BTAND
 } LookupBitwiseALUOP;
 typedef enum bit[1:0] {
-    ASSUBS,
-    ASADDS,
-    ASSUBU,
-    ASADDU
+    AFSUBS,
+    AFADD,
+    AFSUBU,
+    AFEQU
 } LookupArithALUOP;
 typedef enum bit[1:0] {
-    SH_BAD_SHIFT,
     SHSLL,
+    SH_BAD_SHIFT,
     SHSRL,
     SHSRA
 } LookupShiftALUOP;

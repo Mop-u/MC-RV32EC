@@ -2,6 +2,7 @@ module ALUCell (
     input  InA,
     input  InB,
     input  CarryIn,
+    input  FloodCarry, // FC bypasses the carry chain for better timing
     input  Or,
     input  InvertA,
     input  InvertB,
@@ -18,5 +19,5 @@ wire AxB  = ~((InA0&InB0)|~AoB);
 // OR / XOR select
 wire PartialSum = Or ? AoB : AxB;
 assign CarryOut = PartialSum & CarryIn;
-assign OutC     = PartialSum ^ CarryIn;
+assign OutC     = PartialSum ^ (CarryIn|FloodCarry);
 endmodule
