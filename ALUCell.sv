@@ -17,7 +17,7 @@ wire AoB  = InA0 | InB0;
 // Input XOR
 wire AxB  = ~((InA0&InB0)|~AoB);
 // OR / XOR select
-wire PartialSum = Or ? AoB : AxB;
-assign CarryOut = PartialSum & CarryIn;
+wire PartialSum = (AoB & Or) | AxB;
+assign CarryOut = (PartialSum & CarryIn) | (InA0 & InB0 & ~Or);
 assign OutC     = PartialSum ^ (CarryIn|FloodCarry);
 endmodule
