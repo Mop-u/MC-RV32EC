@@ -8,13 +8,13 @@ end
 always #100 clk = ~clk;
 
 wire [15:0] Inst;
-Cursed_Live_Assembler_ROM cursed_live_assembler_rom (
+BinaryLoader binary_loader (
     .Address(InstructionAddress),
     .Instruction(Inst)
 );
 
 integer Cycle = 0;
-integer Stop = 128;
+integer Stop = 1024;
 always_ff @(posedge clk, posedge rst) begin
     if     (rst)         Cycle <= 0;
     else if(Cycle>=Stop) $finish();
@@ -52,6 +52,7 @@ wire [3:0]  CtrlALUOp;
 wire        CtrlFlagInv;
 wire        CtrlPCWriteback;
 wire [1:0]  CtrlPCMode;
+wire        ValidDecode_C;
 CompressedInstructionDecode #(.embedded(0)) 
 decoder (
     .clk(clk),
@@ -66,14 +67,15 @@ decoder (
     .CtrlALUOp      (CtrlALUOp),
     .CtrlFlagInv    (CtrlFlagInv),
     .CtrlPCWriteback(CtrlPCWriteback),
-    .CtrlPCMode     (CtrlPCMode)
+    .CtrlPCMode     (CtrlPCMode),
+    .ValidDecode    (ValidDecode_C)
 );
 wire [31:0] InstructionAddress;
 wire [31:0] LinkAddress;
 ProgramCounter program_counter (
     .clk(clk),
     .rst(rst),
-    .Compressed    (1'b1),
+    .Compressed    (ValidDecode_C),
     .CtrlPCMode    (CtrlPCMode),
     .CtrlMultiCycle(CtrlMultiCycle),
     .RegDirect     (RegfileRs1),

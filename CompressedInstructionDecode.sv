@@ -13,8 +13,10 @@ module CompressedInstructionDecode #(
     output [3:0]  CtrlALUOp,
     output        CtrlFlagInv,
     output        CtrlPCWriteback,
-    output [1:0]  CtrlPCMode
+    output [1:0]  CtrlPCMode,
+    output        ValidDecode
 );
+assign ValidDecode = |OneHotOp;
 always_ff @(posedge clk) begin
     //$display("InstructionIn: %b",InstructionIn);
     case(1'b1) 
@@ -128,7 +130,7 @@ typedef enum bit[3:0] {
 /* 10,11 */ SWSP
 } OpcodeMainLookup;
 
-wire OpcodeJumpOrALU = {~|i[6:2],i[12]};
+wire [1:0] OpcodeJumpOrALU = {~|i[6:2],i[12]};
 typedef enum bit[1:0] {
 /* 0,0 */ MV,
 /* 0,1 */ ADD,
