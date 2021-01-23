@@ -9,12 +9,12 @@ always #100 clk = ~clk;
 
 wire [15:0] Inst;
 Cursed_Live_Assembler_ROM cursed_live_assembler_rom (
-    .Address(Cycle),
+    .Address(InstructionAddress),
     .Instruction(Inst)
 );
 
 integer Cycle = 0;
-integer Stop = 10;
+integer Stop = 128;
 always_ff @(posedge clk, posedge rst) begin
     if     (rst)         Cycle <= 0;
     else if(Cycle>=Stop) $finish();
@@ -54,6 +54,7 @@ wire        CtrlPCWriteback;
 wire [1:0]  CtrlPCMode;
 CompressedInstructionDecode #(.embedded(0)) 
 decoder (
+    .clk(clk),
     .InstructionIn  (Inst),
     .Rs1            (DecodedRs1),
     .Rs2            (DecodedRs2),
@@ -67,24 +68,40 @@ decoder (
     .CtrlPCWriteback(CtrlPCWriteback),
     .CtrlPCMode     (CtrlPCMode)
 );
-wire [31:0] RdData = (CtrlALUOp[3:2] == ALUSH) ? ShiftUnitRd : IntegerUnitRd;
-wire [31:0] Rs1Data;
-wire [31:0] Rs2Data;
+wire [31:0] InstructionAddress;
+wire [31:0] LinkAddress;
+ProgramCounter program_counter (
+    .clk(clk),
+    .rst(rst),
+    .Compressed    (1'b1),
+    .CtrlPCMode    (CtrlPCMode),
+    .CtrlMultiCycle(CtrlMultiCycle),
+    .RegDirect     (RegfileRs1),
+    .ImmOffset     (DecodedImm),
+    .Flag          (IntegerUnitFlag),
+    .AddressOut    (InstructionAddress),
+    .LinkOut       (LinkAddress)
+);
+wire [31:0] RegfileRd = CtrlPCWriteback ? LinkAddress :
+              (CtrlALUOp[3:2] == ALUSH) ? ShiftUnitRd 
+                                        : IntegerUnitRd;
+wire [31:0] RegfileRs1;
+wire [31:0] RegfileRs2;
 Regfile #(.embedded(0))
 regfile (
     .clk(clk),
     .RdAddr (DecodedRd),
     .Rs1Addr(DecodedRs1),
     .Rs2Addr(DecodedRs2),
-    .RdData (RdData),
-    .Rs1Data(Rs1Data),
-    .Rs2Data(Rs2Data)
+    .RdData (RegfileRd),
+    .Rs1Data(RegfileRs1),
+    .Rs2Data(RegfileRs2)
 );
-wire [31:0] Rs2IntMux = CtrlALUImm ? DecodedImm : Rs2Data;
+wire [31:0] Rs2IntMux = CtrlALUImm ? DecodedImm : RegfileRs2;
 wire [31:0] IntegerUnitRd;
 wire        IntegerUnitFlag;
 IntegerUnit int_unit (
-    .Rs1        (Rs1Data),
+    .Rs1        (RegfileRs1),
     .Rs2        (Rs2IntMux),
     .CtrlALUOp  (CtrlALUOp),
     .CtrlFlagInv(CtrlFlagInv),
@@ -93,7 +110,7 @@ IntegerUnit int_unit (
 );
 wire [31:0] ShiftUnitRd;
 ShiftUnit shift_unit (
-    .Word      (Rs1Data),
+    .Word      (RegfileRs1),
     .Shamt     (Rs2IntMux[4:0]),
     .SignExtend(CtrlALUOp[0]),
     .ShiftRight(CtrlALUOp[1]),

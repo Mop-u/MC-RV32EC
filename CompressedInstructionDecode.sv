@@ -1,6 +1,7 @@
 module CompressedInstructionDecode #(
     parameter embedded = 1
 )(
+    input clk,
     input [15:0] InstructionIn,
     output logic [raddr_w-1:0] Rs1,
     output logic [raddr_w-1:0] Rs2,
@@ -14,6 +15,31 @@ module CompressedInstructionDecode #(
     output        CtrlPCWriteback,
     output [1:0]  CtrlPCMode
 );
+always_ff @(posedge clk) begin
+    //$display("InstructionIn: %b",InstructionIn);
+    case(1'b1) 
+        OneHotOp[OH_J          ]: $display("Decode: J");
+        OneHotOp[OH_JAL        ]: $display("Decode: JAL");
+        OneHotOp[OH_JR         ]: $display("Decode: JR");
+        OneHotOp[OH_JALR_EBREAK]: $display("Decode: JALR_EBREAK");
+        OneHotOp[OH_BEQZ_BNEZ  ]: $display("Decode: BEQZ_BNEZ");
+        OneHotOp[OH_LW         ]: $display("Decode: LW");
+        OneHotOp[OH_SW         ]: $display("Decode: SW");
+        OneHotOp[OH_LWSP       ]: $display("Decode: LWSP");
+        OneHotOp[OH_SWSP       ]: $display("Decode: SWSP");
+        OneHotOp[OH_ALUMAIN    ]: $display("Decode: ALUMAIN");
+        OneHotOp[OH_ANDI       ]: $display("Decode: ANDI");
+        OneHotOp[OH_SRAI_SRLI  ]: $display("Decode: SRAI_SRLI");
+        OneHotOp[OH_ADDI_NOP   ]: $display("Decode: ADDI_NOP");
+        OneHotOp[OH_SLLI       ]: $display("Decode: SLLI");
+        OneHotOp[OH_LI_LUI     ]: $display("Decode: LI_LUI");
+        OneHotOp[OH_MV         ]: $display("Decode: MV");
+        OneHotOp[OH_ADD        ]: $display("Decode: ADD");
+        OneHotOp[OH_ADDI4SPN   ]: $display("Decode: ADDI4SPN");
+        OneHotOp[OH_ADDI16SP   ]: $display("Decode: ADDI16SP");
+    endcase
+end
+
 localparam raddr_w = embedded ? 4 : 5;
 wire [15:0] i = InstructionIn;
 

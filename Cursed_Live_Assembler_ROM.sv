@@ -4,38 +4,55 @@ module Cursed_Live_Assembler_ROM (
 );
 assign Instruction = Inst;
 
-logic [4:0]  Rs1   = 5'h0F;
-logic [4:0]  Rs2   = 5'h0E;
-logic [31:0] Imm   = '1;
-logic [15:0] Inst  = C_NOP;
-always_comb case(Address)
+logic [4:0]  Rs1;
+logic [4:0]  Rs2;
+logic [31:0] Imm;
+logic [15:0] Inst;
+always_comb case(Address[31:1])
     0: begin
         Inst = C_NOP;
     end
     1: begin
-        Rs1 = 14;
-        Imm = 1;
-        Inst = C_LI; // Load 1 to x14
+        Rs1 = 8;
+        Imm = 0;
+        Inst = C_LI;
     end
     2: begin
-        Rs1 = 15;
-        Imm = 0;
-        Inst = C_LI; // Load 0 to x15
+        Rs1 = 10;
+        Rs2 = 8;
+        Inst = C_MV;
     end
     3: begin
-        Rs1 = 15;
-        Rs2 = 14;
-        Inst = C_ADD; // x15 = x15 + x14
+        Rs1 = 9;
+        Imm = 1;
+        Inst = C_LI;
     end
     4: begin
-        Rs1 = 14;
-        Imm = 1;
-        Inst = C_ADDI; // x14 = x14 + 1
+        Rs1 = 10;
+        Rs2 = 9;
+        Inst = C_MV;
+    end
+    5: begin
+        Rs1 = 8;
+        Rs2 = 9;
+        Inst = C_ADD;
+    end
+    6: begin
+        Rs1 = 10;
+        Rs2 = 8;
+        Inst = C_MV;
+    end
+    7: begin
+        Rs1 = 9;
+        Rs2 = 8;
+        Inst = C_ADD;
+    end
+    8: begin
+        Imm = -(4*2);
+        Inst = C_JAL;
     end
     default: begin
-        Rs1 = 15;
-        Imm = 4;
-        Inst = C_SLLI;
+        Inst = C_NOP;
     end
 endcase
 

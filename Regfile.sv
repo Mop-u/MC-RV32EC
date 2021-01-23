@@ -14,7 +14,7 @@ reg [31:0] Registers [1:(2**raddr_w)-1];
 always_ff @(posedge clk) begin
     if(|RdAddr) begin
         Registers[RdAddr] <= RdData;
-        $display("x%d <= %h",RdAddr,RdData);
+        $display("x%0d <= %h",RdAddr,RdData);
     end
 end
 assign Rs1Data = |Rs1Addr ? Registers[Rs1Addr] : '0;
