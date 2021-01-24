@@ -23,10 +23,10 @@ XNOR  1   1   x   0   1
 
 wire CondInvertA = InA ^ InvertA;
 wire CondInvertB = InB ^ InvertB;
-wire InOR  = CondInvertA | CondInvertB;
-wire InAND = CondInvertA & CondInvertB & ~Or;
-wire InXOR = ~(InAND|~InOR);
+wire GateOR  = CondInvertA | CondInvertB;
+wire GateAND = CondInvertA & CondInvertB & ~Or;
+wire GateXOR = ~(GateAND|~GateOR);
 
-assign CarryOut = (InOR & CarryIn) | InAND;
-assign OutC     = InXOR ^ (CarryIn | FloodCarry);
+assign CarryOut = (GateOR & CarryIn) | GateAND;
+assign OutC     = GateXOR ^ (CarryIn | FloodCarry);
 endmodule

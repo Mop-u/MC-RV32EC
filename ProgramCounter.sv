@@ -25,7 +25,7 @@ module ProgramCounter (
 */
 // Choose between 2 and 4 byte increments based on instruction width
 wire [2:0]  IncrementOffset = Compressed ? 2 : 4;
-wire [31:0] IncrementCalc = CurrentValue + IncrementOffset;
+wire [31:0] LinkCalc = CurrentValue + ((CtrlPCMode == PCINC) ? ImmOffset : IncrementOffset);
 
 wire [31:0] AddA = (CtrlPCMode == PCJREG) ? RegDirect : CurrentValue;
 
@@ -53,5 +53,5 @@ always @(posedge clk, posedge rst) begin
     end
 end
 assign AddressOut = CurrentValue;
-assign LinkOut    = IncrementCalc;
+assign LinkOut    = LinkCalc;
 endmodule
