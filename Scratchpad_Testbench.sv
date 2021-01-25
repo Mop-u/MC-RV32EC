@@ -7,7 +7,7 @@ initial begin
 end
 always #100 clk = ~clk;
 
-wire [15:0] Inst;
+wire [31:0] Inst;
 BinaryLoader binary_loader (
     .Address(InstructionAddress),
     .Instruction(Inst)
@@ -20,7 +20,19 @@ always_ff @(posedge clk, posedge rst) begin
     else if(Cycle>=Stop) $finish();
     else                 Cycle <= Cycle + 1;
 end
-
+always_ff @(posedge clk) begin
+    $display("\nCycle %0d:",Cycle);
+    $display("PC: %h",InstructionAddress);
+    $display("EncALUCat %b, EncALUOp %b, ImmEN %b", CtrlALUOp[3:2], CtrlALUOp[1:0], CtrlALUImm);
+    if(CtrlALUImm) $display("Imm => %h",DecodedImmALU);
+    $display("x%d => %h",DecodedRs1,RegfileRs1);
+    $display("x%d => %h",DecodedRs2,RegfileRs2);
+    $display("x%d <= %h",DecodedRd, RegfileRd);
+    if(CtrlPCMode==PCBRCH) case(IntegerUnitFlag)
+        1'b1: $display("Branch Taken");
+        1'b0: $display("Branch Not Taken");
+    endcase
+end
 `include "CtrlSigEnums.sv"
 /*  _______________________________________________________________________________
    |                          2-bit control signal tables                          |

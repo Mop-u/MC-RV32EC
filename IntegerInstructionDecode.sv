@@ -121,15 +121,15 @@ always_comb begin
                           //|Load:Store| Extend |Width| Cycle |IMM : r2|Category|Opcode|Invert|Writeback|  Mode  |
         Inst_SHIFTMAIN : begin
             CtrlSigLookup = {LO,        LO,      LSN,  LO,     ~i[5],   ALUSH, EncShift,LO,    LO,       PCINC   };
-            if(i[5]) Rs2 = 0;
+            if(~i[5]) Rs2 = 0;
         end
         Inst_ALUMAIN   : begin
             CtrlSigLookup = {LO,        LO,      LSN,  LO,     ~i[5],EncALUCat,EncALUOp,LO,    LO,       PCINC   };
-            if(i[5]) Rs2 = 0;
+            if(~i[5]) Rs2 = 0;
         end
         Inst_FLAGMAIN  : begin
             CtrlSigLookup = {LO,        LO,      LSN,  LO,     ~i[5],   ALUFL, EncFlag, LO,    LO,       PCINC   };
-            if(i[5]) Rs2 = 0;
+            if(~i[5]) Rs2 = 0;
         end
         Inst_LUI       : begin
             CtrlSigLookup = {LO,        LO,      LSN,  LO,     HI,      ALUBT,   BTOR,  LO,    LO,       PCINC   };
@@ -155,8 +155,9 @@ always_comb begin
             Rd = 0;
         end
         Inst_LOAD_STORE: begin
-            CtrlSigLookup = {~i[5],    ~i[14],~i[13:12],LO,    HI,      ALUAS,   ASADD, LO,    LO,       PCINC   };
+            CtrlSigLookup = {~i[5],    ~i[14],~i[13:12],LO,    HI,      ALUAS,   AFADD, LO,    LO,       PCINC   };
             if(~i[5]) Rs2 = 0;
+            else      Rd  = 0;
         end
         Inst_FENCE     : begin // Unimplemented for now
             CtrlSigLookup = {LO,        LO,      LSN,  LO,     LO,      2'b00,   2'b00, LO,    LO,       PCINC   };

@@ -41,15 +41,9 @@ reg [31:0] CurrentValue;
 always @(posedge clk, posedge rst) begin
     if(rst) begin
         CurrentValue <= '0;
-        $display("PC: %h",CurrentValue);
     end
     else if(~CtrlMultiCycle) begin
         CurrentValue <= AddA + AddB;
-        $display("PC: %h",CurrentValue);
-        if(CtrlPCMode==PCBRCH) case(Flag)
-            1'b1: $display("Branch Taken");
-            1'b0: $display("Branch Not Taken");
-        endcase
     end
 end
 assign AddressOut = CurrentValue;
