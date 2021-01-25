@@ -20,13 +20,6 @@ always_ff @(posedge clk, posedge rst) begin
     else if(Cycle>=Stop) $finish();
     else                 Cycle <= Cycle + 1;
 end
-always_ff @(posedge clk, posedge rst) begin
-    if(rst) begin
-    end
-    else begin
-
-    end
-end
 
 `include "CtrlSigEnums.sv"
 /*  _______________________________________________________________________________
@@ -35,7 +28,7 @@ end
    |    ALUOP    | Bitwise |     Arith &     |  Shift  |   PC Write    |    LSU    |
    |   Category  |  ALUOP  |    Flag ALUOP   |  ALUOP  |     Mode      |   Width   |
    |-------------|---------|-----------------|---------|---------------|-----------|
- 00|Bitwise ALUBT|Undefined|Signed Sub AFSUBS|SLL SHSLL|Inc      PCINC |LSU Nop LSN|
+ 00|Bitwise ALUBT| ALU_NOP |Signed Sub AFSUBS|SLL SHSLL|Inc      PCINC |LSU Nop LSN|
  01|Add/Sub ALUAS|XOR BTXOR|       Add AFADD |Undefined|Branch   PCBRCH|Word    LSW|
  10|Shift   ALUSH|OR  BTOR |Unsign Sub AFSUBU|SRL SHSRL|Jump Reg PCJREG|Half    LSH|
  11|Flag    ALUFL|AND BTAND|Equality   AFEQU |SRA SHSRA|Jump Imm PCJIMM|Byte    LSB|
@@ -44,7 +37,8 @@ end
 wire [4:0]  DecodedRs1;
 wire [4:0]  DecodedRs2;
 wire [4:0]  DecodedRd;
-wire [31:0] DecodedImm;
+wire [31:0] DecodedImmALU;
+wire [31:0] DecodedImmPC;
 wire [3:0]  CtrlLSU;
 wire        CtrlMultiCycle;
 wire        CtrlALUImm;
@@ -53,22 +47,23 @@ wire        CtrlFlagInv;
 wire        CtrlPCWriteback;
 wire [1:0]  CtrlPCMode;
 wire        ValidDecode_C;
-CompressedInstructionDecode #(.embedded(0)) 
+MainDecode #(.embedded(0)) 
 decoder (
-    .clk(clk),
-    .InstructionIn  (Inst),
-    .Rs1            (DecodedRs1),
-    .Rs2            (DecodedRs2),
-    .Rd             (DecodedRd),
-    .Immediate      (DecodedImm),
-    .CtrlLSU        (CtrlLSU),
-    .CtrlMultiCycle (CtrlMultiCycle),
-    .CtrlALUImm     (CtrlALUImm),
-    .CtrlALUOp      (CtrlALUOp),
-    .CtrlFlagInv    (CtrlFlagInv),
-    .CtrlPCWriteback(CtrlPCWriteback),
-    .CtrlPCMode     (CtrlPCMode),
-    .ValidDecode    (ValidDecode_C)
+    .InstructionIn   (Inst),
+    .Rs1             (DecodedRs1),
+    .Rs2             (DecodedRs2),
+    .Rd              (DecodedRd),
+    .ImmALU          (DecodedImmALU),
+    .ImmPC           (DecodedImmPC),
+    .CtrlLSU         (CtrlLSU),
+    .CtrlMultiCycle  (CtrlMultiCycle),
+    .CtrlALUImm      (CtrlALUImm),
+    .CtrlALUOp       (CtrlALUOp),
+    .CtrlFlagInv     (CtrlFlagInv),
+    .CtrlPCWriteback (CtrlPCWriteback),
+    .CtrlPCMode      (CtrlPCMode),
+    .ValidDecode     (),
+    .CompressedDecode(ValidDecode_C)
 );
 wire [31:0] InstructionAddress;
 wire [31:0] LinkAddress;
@@ -79,7 +74,7 @@ ProgramCounter program_counter (
     .CtrlPCMode    (CtrlPCMode),
     .CtrlMultiCycle(CtrlMultiCycle),
     .RegDirect     (RegfileRs1),
-    .ImmOffset     (DecodedImm),
+    .ImmOffset     (DecodedImmPC),
     .Flag          (IntegerUnitFlag),
     .AddressOut    (InstructionAddress),
     .LinkOut       (LinkAddress)
@@ -99,7 +94,7 @@ regfile (
     .Rs1Data(RegfileRs1),
     .Rs2Data(RegfileRs2)
 );
-wire [31:0] Rs2IntMux = CtrlALUImm ? DecodedImm : RegfileRs2;
+wire [31:0] Rs2IntMux = CtrlALUImm ? DecodedImmALU : RegfileRs2;
 wire [31:0] IntegerUnitRd;
 wire        IntegerUnitFlag;
 IntegerUnit int_unit (

@@ -16,7 +16,7 @@ wire [1:0] ALUSel = CtrlALUOp[1:0];
    |    ALUOP    | Bitwise |     Arith &     |  Shift  |   PC Write    |    LSU    |
    |   Category  |  ALUOP  |    Flag ALUOP   |  ALUOP  |     Mode      |   Width   |
    |-------------|---------|-----------------|---------|---------------|-----------|
- 00|Bitwise ALUBT|Undefined|Signed Sub AFSUBS|SLL SHSLL|Inc      PCINC |LSU Nop LSN|
+ 00|Bitwise ALUBT| ALU_NOP |Signed Sub AFSUBS|SLL SHSLL|Inc      PCINC |LSU Nop LSN|
  01|Add/Sub ALUAS|XOR BTXOR|       Add AFADD |Undefined|Branch   PCBRCH|Word    LSW|
  10|Shift   ALUSH|OR  BTOR |Unsign Sub AFSUBU|SRL SHSRL|Jump Reg PCJREG|Half    LSH|
  11|Flag    ALUFL|AND BTAND|Equality   AFEQU |SRA SHSRA|Jump Imm PCJIMM|Byte    LSB|
@@ -57,7 +57,7 @@ wire EqualityCheck = (ALUSel == AFEQU);
 wire IsZero = ~|OutC;
 wire DiffSigns = SignedCheck & (Rs1[31] ^ Rs2[31]);
 wire Rs1GreaterEqualRs2 = DiffSigns ? Rs2[31] : CarryOut;
-wire SelectedFlag = EqualityCheck ? IsZero : Rs1GreaterEqualRs2;
+wire SelectedFlag = EqualityCheck ? IsZero : ~Rs1GreaterEqualRs2;
 
 assign Flag = SelectedFlag ^ CtrlFlagInv;
 assign Rd = ALUCat[1] ? {31'b0,Flag} : OutC;

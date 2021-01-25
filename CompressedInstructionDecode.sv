@@ -1,12 +1,12 @@
 module CompressedInstructionDecode #(
     parameter embedded = 1
 )(
-    input clk,
     input [15:0] InstructionIn,
     output logic [raddr_w-1:0] Rs1,
     output logic [raddr_w-1:0] Rs2,
     output logic [raddr_w-1:0] Rd,
-    output [31:0] Immediate,
+    output [31:0] ImmALU,
+    output [31:0] ImmPC,
     output [3:0]  CtrlLSU,
     output        CtrlMultiCycle,
     output        CtrlALUImm,
@@ -16,30 +16,6 @@ module CompressedInstructionDecode #(
     output [1:0]  CtrlPCMode,
     output logic  ValidDecode
 );
-always_ff @(posedge clk) begin
-    //$display("InstructionIn: %b",InstructionIn);
-    if(ValidDecode) case(1'b1) 
-        Inst_J          : $display("Decode: C_J");
-        Inst_JAL        : $display("Decode: C_JAL");
-        Inst_JR         : $display("Decode: C_JR");
-        Inst_JALR_EBREAK: $display("Decode: C_JALR_EBREAK");
-        Inst_BEQZ_BNEZ  : $display("Decode: C_BEQZ_BNEZ");
-        Inst_LW         : $display("Decode: C_LW");
-        Inst_SW         : $display("Decode: C_SW");
-        Inst_LWSP       : $display("Decode: C_LWSP");
-        Inst_SWSP       : $display("Decode: C_SWSP");
-        Inst_ALUMAIN    : $display("Decode: C_ALUMAIN");
-        Inst_ANDI       : $display("Decode: C_ANDI");
-        Inst_SRAI_SRLI  : $display("Decode: C_SRAI_SRLI");
-        Inst_ADDI_NOP   : $display("Decode: C_ADDI_NOP");
-        Inst_SLLI       : $display("Decode: C_SLLI");
-        Inst_LI_LUI     : $display("Decode: C_LI_LUI");
-        Inst_MV         : $display("Decode: C_MV");
-        Inst_ADD        : $display("Decode: C_ADD");
-        Inst_ADDI4SPN   : $display("Decode: C_ADDI4SPN");
-        Inst_ADDI16SP   : $display("Decode: C_ADDI16SP");
-    endcase
-end
 
 localparam raddr_w = embedded ? 4 : 5;
 wire [15:0] i = InstructionIn;
@@ -74,7 +50,7 @@ wire [raddr_w-1:0] RawRd = WritesRs2 ? RawRs2 : RawRs1;
 //                         AD:12  FH:8  CFH:7                            HI:9 
 //                                 A:12   A:12
 
-// Sort immediate format types by associated instuction
+// Sort immediate format types by associated instuction (Arbitrary format names, not same as spec)
 wire ImmA = Inst_ANDI | Inst_ADDI_NOP | Inst_LI;
 wire ImmB = Inst_LWSP;
 wire ImmC = Inst_J | Inst_JAL;
@@ -93,24 +69,35 @@ wire ImmAI = ImmA | ImmI;
 wire ImmSignADEC = i[12]&(ImmA|ImmD|ImmE|ImmC);
 wire ImmSignADECJ = i[12]&(ImmA|ImmD|ImmE|ImmC|ImmJ);
 
-// Per-bit immediate format multiplex
-wire [31:0] RawImm;
-assign RawImm[0]     = (i[02]&ImmAI);
-assign RawImm[1]     = (i[03]&(ImmAI|ImmC|ImmD));
-assign RawImm[2]     = (i[04]&(ImmAI|ImmB|ImmC|ImmD))        | (i[09]&ImmH)             | (i[06]&(ImmF|ImmG));
-assign RawImm[3]     = (i[05]&(ImmAI|ImmB|ImmC|ImmF))        | (i[10]&(ImmD|ImmG|ImmH));
-assign RawImm[4]     = (i[06]&(ImmAI|ImmB|ImmE))             | (i[11]&(ImmC|ImmD|ImmF|ImmG|ImmH));
-assign RawImm[5]     = (i[12]&(ImmAI|ImmB|ImmF|ImmG|ImmH))   | (i[02]&(ImmE|ImmC|ImmD));
-assign RawImm[6]     = (i[12]&ImmA) |(i[05]&(ImmD|ImmE|ImmG))| (i[02]&ImmB) | (i[07]&(ImmC|ImmF|ImmH));
-assign RawImm[7]     = (i[12]&ImmA) | (i[06]&(ImmC|ImmD))    | (i[03]&(ImmB|ImmE))      | (i[08]&(ImmF|ImmH));
-assign RawImm[8]     = (i[12]&(ImmA|ImmD))                   | (i[04]&ImmE)             | (i[09]&(ImmC|ImmF));
-assign RawImm[9]     = (i[12]&(ImmA|ImmD|ImmE))              | (i[10]&(ImmC|ImmF));
-assign RawImm[10]    = (i[12]&(ImmA|ImmD|ImmE))              | (i[08]&ImmC);
-assign RawImm[11]    = ImmSignADEC;
-assign RawImm[16:12] = ImmJ ? i[6:2] : {(5){ImmSignADEC}};
-assign RawImm[31:17] = {(15){ImmSignADECJ}};
+// Main immediate output
+assign ImmALU[0]     = (i[02]&ImmAI);
+assign ImmALU[1]     = (i[03]&(ImmAI|ImmC|ImmD));
+assign ImmALU[2]     = (i[04]&(ImmAI|ImmB|ImmC|ImmD))        | (i[09]&ImmH)             | (i[06]&(ImmF|ImmG));
+assign ImmALU[3]     = (i[05]&(ImmAI|ImmB|ImmC|ImmF))        | (i[10]&(ImmD|ImmG|ImmH));
+assign ImmALU[4]     = (i[06]&(ImmAI|ImmB|ImmE))             | (i[11]&(ImmC|ImmD|ImmF|ImmG|ImmH));
+assign ImmALU[5]     = (i[12]&(ImmAI|ImmB|ImmF|ImmG|ImmH))   | (i[02]&(ImmE|ImmC|ImmD));
+assign ImmALU[6]     = (i[12]&ImmA) |(i[05]&(ImmD|ImmE|ImmG))| (i[02]&ImmB) | (i[07]&(ImmC|ImmF|ImmH));
+assign ImmALU[7]     = (i[12]&ImmA) | (i[06]&(ImmC|ImmD))    | (i[03]&(ImmB|ImmE))      | (i[08]&(ImmF|ImmH));
+assign ImmALU[8]     = (i[12]&(ImmA|ImmD))                   | (i[04]&ImmE)             | (i[09]&(ImmC|ImmF));
+assign ImmALU[9]     = (i[12]&(ImmA|ImmD|ImmE))              | (i[10]&(ImmC|ImmF));
+assign ImmALU[10]    = (i[12]&(ImmA|ImmD|ImmE))              | (i[08]&ImmC);
+assign ImmALU[11]    = ImmSignADEC;
+assign ImmALU[16:12] = ImmJ ? i[6:2] : {(5){ImmSignADEC}};
+assign ImmALU[31:17] = {(15){ImmSignADECJ}};
 
-assign Immediate = RawImm;
+// Just the jump-relative immediates to ease the critical path
+assign ImmPC[0]     = 1'b0;
+assign ImmPC[1]     = i[03];
+assign ImmPC[2]     = i[04];
+assign ImmPC[3]     = (i[05]&ImmC) | (i[10]&ImmD);
+assign ImmPC[4]     = i[11];
+assign ImmPC[5]     = i[02];
+assign ImmPC[6]     = (i[05]&ImmD) | (i[07]&ImmC);
+assign ImmPC[7]     = i[06];
+assign ImmPC[8]     = (i[12]&ImmD) | (i[09]&ImmC);
+assign ImmPC[9]     = (i[12]&ImmD) | (i[10]&ImmC);
+assign ImmPC[10]    = (i[12]&ImmD) | (i[08]&ImmC);
+assign ImmPC[31:11] = {21{i[12]}};
 
 // Main instruction decode
 wire [3:0] OpcodeMain = {i[1:0],i[15:14]};
@@ -181,7 +168,7 @@ wire Inst_ADDI16SP    = PartDec_LI_LUI_ADDI16SP & (BigRs1==2) & i[13];
    |    ALUOP    | Bitwise |     Arith &     |  Shift  |   PC Write    |    LSU    |
    |   Category  |  ALUOP  |    Flag ALUOP   |  ALUOP  |     Mode      |   Width   |
    |-------------|---------|-----------------|---------|---------------|-----------|
- 00|Bitwise ALUBT|Undefined|Signed Sub AFSUBS|SLL SHSLL|Inc      PCINC |LSU Nop LSN|
+ 00|Bitwise ALUBT| ALU_NOP |Signed Sub AFSUBS|SLL SHSLL|Inc      PCINC |LSU Nop LSN|
  01|Add/Sub ALUAS|XOR BTXOR|       Add AFADD |Undefined|Branch   PCBRCH|Word    LSW|
  10|Shift   ALUSH|OR  BTOR |Unsign Sub AFSUBU|SRL SHSRL|Jump Reg PCJREG|Half    LSH|
  11|Flag    ALUFL|AND BTAND|Equality   AFEQU |SRA SHSRA|Jump Imm PCJIMM|Byte    LSB|
@@ -210,24 +197,34 @@ always_comb begin
     ValidDecode = 1'b1;
     unique case(1'b1)
         // Main Dataloop Ops
-        Inst_ALUMAIN:  // EncALUCat = {1'b0,~|i[6:5]}, EncALUOp = i[6:5]. All register-register instructions.
+        Inst_ALUMAIN: begin  // EncALUCat = {1'b0,~|i[6:5]}, EncALUOp = i[6:5]. All register-register instructions.
             CtrlSigLookup = {LO,        LO,      LSN,  LO,     LO,    EncALUCat,EncALUOp,LO,   LO,       PCINC   };
-        Inst_ANDI:     // Imm goes to ALUInB.
+        end
+        Inst_ANDI: begin     // Imm goes to ALUInB.
             CtrlSigLookup = {LO,        LO,      LSN,  LO,     HI,      ALUBT,   BTAND, LO,    LO,       PCINC   };
-        Inst_SRAI_SRLI:// Choice between SRAI and SRLI is decided by raw instruction bit i[10] @ ALUOpcode lsb. Imm goes to ALUInB.
+            Rs2 = 0;
+        end
+        Inst_SRAI_SRLI: begin// Choice between SRAI and SRLI is decided by raw instruction bit i[10] @ ALUOpcode lsb. Imm goes to ALUInB.
             CtrlSigLookup = {LO,        LO,      LSN,  LO,     HI,      ALUSH,EncSRMode,LO,    LO,       PCINC   };
-        Inst_ADDI_NOP: // Imm goes to ALUInB.
+            Rs2 = 0;
+        end
+        Inst_ADDI_NOP: begin // Imm goes to ALUInB.
             CtrlSigLookup = {LO,        LO,      LSN,  LO,     HI,      ALUAS,   AFADD, LO,    LO,       PCINC   };
-        Inst_SLLI:     // Imm goes to ALUInB.
+            Rs2 = 0;
+        end
+        Inst_SLLI: begin     // Imm goes to ALUInB.
             CtrlSigLookup = {LO,        LO,      LSN,  LO,     HI,      ALUSH,   SHSLL, LO,    LO,       PCINC   };
-        Inst_ADD:      // Straightforward addition (rd = rs1 + rs2)
+            Rs2 = 0;
+        end
+        Inst_ADD: begin      // Straightforward addition (rd = rs1 + rs2)
             CtrlSigLookup = {LO,        LO,      LSN,  LO,     LO,      ALUAS,   AFADD, LO,    LO,       PCINC   };
-                          //|LSU Mode ?|LSU Sign| LSU | Multi |ALUInB ?| ALUOP  |ALUOP | Flag |Link Reg |PC Write|
+        end               //|LSU Mode ?|LSU Sign| LSU | Multi |ALUInB ?| ALUOP  |ALUOP | Flag |Link Reg |PC Write|
                           //|Load:Store| Extend |Width| Cycle |IMM : r2|Category|Opcode|Invert|Writeback|  Mode  |
         
         Inst_LI_LUI: begin // Imm goes to ALUInB. Set rs1 to 0 to pass rs2 through the ALU to rd. Diff between LI and LUI already determined by imm formatting
             CtrlSigLookup = {LO,        LO,      LSN,  LO,     HI,      ALUBT,   BTOR,  LO,    LO,       PCINC   }; 
             Rs1 = 0;
+            Rs2 = 0;
         end
         Inst_MV: begin // Set rs1 to 0 to pass rs2 through the ALU to rd (rd = rs2 | 0)
             CtrlSigLookup = {LO,        LO,      LSN,  LO,     LO,      ALUBT,   BTOR,  LO,    LO,       PCINC   };
@@ -235,23 +232,29 @@ always_comb begin
         end
         
         // Stack Pointer Ops
-        Inst_ADDI16SP: // Imm goes to ALUInB.
+        Inst_ADDI16SP: begin // Imm goes to ALUInB.
             CtrlSigLookup = {LO,        LO,      LSN,  LO,     HI,      ALUAS,   AFADD, LO,    LO,       PCINC   };
+            Rs2 = 0;
+        end
         Inst_ADDI4SPN: begin // Change rs1 to x2, imm goes to ALUInB. Unsigned addition.
             CtrlSigLookup = {LO,        LO,      LSN,  LO,     HI,      ALUAS,   AFADD, LO,    LO,       PCINC   };
             Rs1 = 2;      //|LSU Mode ?|LSU Sign| LSU | Multi |ALUInB ?| ALUOP  |ALUOP | Flag |Link Reg |PC Write|
-        end               //|Load:Store| Extend |Width| Cycle |IMM : r2|Category|Opcode|Invert|Writeback|  Mode  |
-
+            Rs2 = 0;      //|Load:Store| Extend |Width| Cycle |IMM : r2|Category|Opcode|Invert|Writeback|  Mode  |
+        end
 
         // Program Counter Ops
         Inst_J: begin // ALU is not used, Imm feeds directly to PC in PCJIMM ops.
-            CtrlSigLookup = {LO,        LO,      LSN,  LO,     LO,      2'b00,   2'b00, LO,    LO,       PCJIMM  };
-            Rd = 0;
+            CtrlSigLookup = {LO,        LO,      LSN,  LO,     LO,      ALU_NOP,ALU_NOP,LO,    LO,       PCJIMM  };
+            Rs1 = 0;
+            Rs2 = 0;      //|LSU Mode ?|LSU Sign| LSU | Multi |ALUInB ?| ALUOP  |ALUOP | Flag |Link Reg |PC Write|
+            Rd  = 0;      //|Load:Store| Extend |Width| Cycle |IMM : r2|Category|Opcode|Invert|Writeback|  Mode  |
         end
         Inst_JAL: begin // ALU is not used, Imm feeds directly to PC in PCJIMM ops. Rd is set to x1 for storing the link result.
-            CtrlSigLookup = {LO,        LO,      LSN,  LO,     LO,      2'b00,   2'b00, LO,    HI,       PCJIMM  };
-            Rd = 1;       //|LSU Mode ?|LSU Sign| LSU | Multi |ALUInB ?| ALUOP  |ALUOP | Flag |Link Reg |PC Write|
-        end               //|Load:Store| Extend |Width| Cycle |IMM : r2|Category|Opcode|Invert|Writeback|  Mode  |
+            CtrlSigLookup = {LO,        LO,      LSN,  LO,     LO,      ALU_NOP,ALU_NOP,LO,    HI,       PCJIMM  };
+            Rs1 = 0;
+            Rs2 = 0;      //|LSU Mode ?|LSU Sign| LSU | Multi |ALUInB ?| ALUOP  |ALUOP | Flag |Link Reg |PC Write|
+            Rd  = 1;      //|Load:Store| Extend |Width| Cycle |IMM : r2|Category|Opcode|Invert|Writeback|  Mode  |
+        end               
         Inst_JR: begin
             CtrlSigLookup = {LO,        LO,      LSN,  LO,     LO,      ALUAS,   AFADD, LO,    LO,       PCJREG  };
             Rd = 0;
@@ -265,7 +268,7 @@ always_comb begin
             Rs2 = 0;      //|LSU Mode ?|LSU Sign| LSU | Multi |ALUInB ?| ALUOP  |ALUOP | Flag |Link Reg |PC Write|
             Rd = 0;       //|Load:Store| Extend |Width| Cycle |IMM : r2|Category|Opcode|Invert|Writeback|  Mode  |
         end
-                                
+
         // Load/Store Ops
         Inst_LW:       // Note: rd is written to later by the load/store unit. (Due to multicycle flag)
             CtrlSigLookup = {HI,        LO,      LSW,  HI,     HI,      ALUAS,   AFADD, LO,    LO,       PCINC   };
@@ -273,8 +276,10 @@ always_comb begin
             CtrlSigLookup = {LO,        LO,      LSW,  LO,     HI,      ALUAS,   AFADD, LO,    LO,       PCINC   };
             Rd = 0;
         end
-        Inst_LWSP:     // Set rs1 to stack pointer x2. Note: rd is written to later by the load/store unit. (Due to multicycle flag)
+        Inst_LWSP: begin // Set rs1 to stack pointer x2. Note: rd is written to later by the load/store unit. (Due to multicycle flag)
             CtrlSigLookup = {HI,        LO,      LSW,  HI,     HI,      ALUAS,   AFADD, LO,    LO,       PCINC   };
+            Rs2 = 0;
+        end
         Inst_SWSP: begin // Set rs1 to stack pointer x2. Note: r2 still passes to the load/store unit. Only the ALU sees the immediate instead of r2.
             CtrlSigLookup = {LO,        LO,      LSW,  LO,     HI,      ALUAS,   AFADD, LO,    LO,       PCINC   };
             Rs1 = 2;      //|LSU Mode ?|LSU Sign| LSU | Multi |ALUInB ?| ALUOP  |ALUOP | Flag |Link Reg |PC Write|
