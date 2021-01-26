@@ -12,9 +12,21 @@ BinaryLoader binary_loader (
     .Address(InstructionAddress),
     .Instruction(Inst)
 );
-
+`include "CtrlSigEnums.sv"
+/*  _______________________________________________________________________________
+   |                          2-bit control signal tables                          |
+   |-------------------------------------------------------------------------------|
+   |    ALUOP    | Bitwise |     Arith &     |  Shift  |   PC Write    |    LSU    |
+   |   Category  |  ALUOP  |    Flag ALUOP   |  ALUOP  |     Mode      |   Width   |
+   |-------------|---------|-----------------|---------|---------------|-----------|
+ 00|Bitwise ALUBT| ALU_NOP |Signed Sub AFSUBS|SLL SHSLL|Inc      PCINC |LSU Nop LSN|
+ 01|Add/Sub ALUAS|XOR BTXOR|       Add AFADD |Undefined|Branch   PCBRCH|Word    LSW|
+ 10|Shift   ALUSH|OR  BTOR |Unsign Sub AFSUBU|SRL SHSRL|Jump Reg PCJREG|Half    LSH|
+ 11|Flag    ALUFL|AND BTAND|Equality   AFEQU |SRA SHSRA|Jump Imm PCJIMM|Byte    LSB|
+   \------------------------------------------------------------------------------/
+*/
 integer Cycle = 0;
-integer Stop = 1024;
+integer Stop = 2048;
 always_ff @(posedge clk, posedge rst) begin
     if     (rst)         Cycle <= 0;
     else if(Cycle>=Stop) $finish();
@@ -33,19 +45,7 @@ always_ff @(posedge clk) begin
         1'b0: $display("Branch Not Taken");
     endcase
 end
-`include "CtrlSigEnums.sv"
-/*  _______________________________________________________________________________
-   |                          2-bit control signal tables                          |
-   |-------------------------------------------------------------------------------|
-   |    ALUOP    | Bitwise |     Arith &     |  Shift  |   PC Write    |    LSU    |
-   |   Category  |  ALUOP  |    Flag ALUOP   |  ALUOP  |     Mode      |   Width   |
-   |-------------|---------|-----------------|---------|---------------|-----------|
- 00|Bitwise ALUBT| ALU_NOP |Signed Sub AFSUBS|SLL SHSLL|Inc      PCINC |LSU Nop LSN|
- 01|Add/Sub ALUAS|XOR BTXOR|       Add AFADD |Undefined|Branch   PCBRCH|Word    LSW|
- 10|Shift   ALUSH|OR  BTOR |Unsign Sub AFSUBU|SRL SHSRL|Jump Reg PCJREG|Half    LSH|
- 11|Flag    ALUFL|AND BTAND|Equality   AFEQU |SRA SHSRA|Jump Imm PCJIMM|Byte    LSB|
-   \------------------------------------------------------------------------------/
-*/
+
 wire [4:0]  DecodedRs1;
 wire [4:0]  DecodedRs2;
 wire [4:0]  DecodedRd;

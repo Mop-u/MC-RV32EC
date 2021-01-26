@@ -5,8 +5,8 @@ module CompressedInstructionDecode #(
     output logic [raddr_w-1:0] Rs1,
     output logic [raddr_w-1:0] Rs2,
     output logic [raddr_w-1:0] Rd,
-    output [31:0] ImmALU,
-    output [31:0] ImmPC,
+    output [31:0] ImmALU, // goes downstream
+    output [31:0] ImmPC,  // critical path!
     output [3:0]  CtrlLSU,
     output        CtrlMultiCycle,
     output        CtrlALUImm,

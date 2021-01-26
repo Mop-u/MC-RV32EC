@@ -7,7 +7,7 @@ reg [7:0] Rom [0:rom_s-1];
 initial begin
     integer i;
     integer OpenFile;
-    OpenFile = $fopen("../rom/rom.bin", "rb");
+    OpenFile = $fopen("rom.bin", "rb");
     if(!OpenFile) begin
         $display("BinaryLoader.sv can't find rom");
         $finish();
