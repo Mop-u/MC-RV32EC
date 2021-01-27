@@ -17,17 +17,20 @@ module ColdRegfile #(
 );
 localparam raddr_w = embedded ? 4 : 5;
 localparam wb_tag_w = wb_depth > 1 ? $clog2(wb_depth) : 1;
-wire [raddr_w-1:0] Rs1RegRead;
-wire [raddr_w-1:0] Rs2RegRead;
+
+// This whole module needs work to properly be using interfaces...
+
+rf_drsw_intf #(.embedded(embedded)) RfIntf();
+assign RfIntf.RdAddr = WbAddr;
+assign RfIntf.Rs1Addr = Rs1Addr;
+assign RfIntf.Rs2Addr = Rs2Addr;
+assign RfIntf.RdData = RdData;
+wire [raddr_w-1:0] Rs1RegRead = RfIntf.Rs1Data;
+wire [raddr_w-1:0] Rs2RegRead = RfIntf.Rs2Data;
 Regfile #(.embedded(embedded))
 cold_regfile (
-    .clk    (clk),
-    .RdAddr (WbAddr),
-    .Rs1Addr(Rs1Addr),
-    .Rs2Addr(Rs2Addr),
-    .RdData (RdData),
-    .Rs1Data(Rs1RegRead),
-    .Rs2Data(Rs2RegRead)
+    .clk   (clk),
+    .RfIntf(RfIntf)
 );
 
 reg  [wb_tag_w-1:0] HorizonTag;

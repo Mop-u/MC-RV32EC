@@ -2,7 +2,7 @@
  * Dual-issue, dual-retire resource tag manager
  */
 module ResourceManager #(
-    parameter tag_w = 1
+    parameter tag_w = 4
 ) (
     input  clk,
     input  rst,
@@ -18,7 +18,7 @@ localparam depth = 2**tag_w;
 reg [tag_w-1:0] Queue [0:depth-1];
 reg [tag_w-1:0] QueueHead;
 reg [tag_w-1:0] QueueTail;
-reg [tag_w:0] QueueSize;
+reg [tag_w:0]   QueueSize;
 
 /*
  * ContentionBit logic

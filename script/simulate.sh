@@ -11,13 +11,11 @@ else
     }
     mypath=$(getmypath)
     tmp="$mypath/../tmp"
-    convertfile () {
-        modname=${1%.*}
-        modname=${modname##*/}
-        sv2v --incdir="$mypath/../rtl/lib/" "$1" > "$tmp/$modname.sv"
-    }
+    rtl="$mypath/../rtl"
     rm $tmp/*
-    find $mypath/../rtl/ -iname "*.*v" | while read file; do convertfile "$file"; done
+    incdirlist=$(find $rtl/ -not -path */testbench -and -type d -exec echo -I {} \; )
+    filelist="$(find $rtl/ -name $1) $(find $rtl/ -not -path */testbench/* -and \( -iname *.v -o -iname *.vh -o -iname *.sv \) )"
+    sv2v $incdirlist $filelist > "$tmp/$toplevel.sv"
     cp $mypath/../rom/rom.bin $tmp/rom.bin
     cd $tmp/
     iverilog -o $tmp/out.tmp -g2012 -grelative-include -Y .sv -y $tmp $tmp/$toplevel.sv
