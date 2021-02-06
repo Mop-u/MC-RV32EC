@@ -1,14 +1,16 @@
 // dual read, single write regfile interface
 interface rf_drsw_intf #(
-    parameter embedded = 1
+    parameter addr_w = 5,
+    parameter data_w = 32
 )();
-localparam raddr_w = embedded ? 4 : 5;
-wire [raddr_w-1:0] RdAddr;
-wire [raddr_w-1:0] Rs1Addr;
-wire [raddr_w-1:0] Rs2Addr;
-wire [31:0] RdData;
-wire [31:0] Rs1Data;
-wire [31:0] Rs2Data;
+
+wire [addr_w-1:0] RdAddr;
+wire [addr_w-1:0] Rs1Addr;
+wire [addr_w-1:0] Rs2Addr;
+wire [data_w-1:0] RdData;
+wire [data_w-1:0] Rs1Data;
+wire [data_w-1:0] Rs2Data;
+
 modport to_rf (
     output RdAddr,
     output Rs1Addr,

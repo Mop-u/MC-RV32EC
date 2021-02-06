@@ -1,11 +1,11 @@
 module DualWriteRegfile #(
-    parameter embedded = 1
+    parameter addr_w = 5,
+    parameter data_w = 32
 )(
     input clk,
     rf_drdw_intf.from_rf RfIntf
 );
-localparam raddr_w = embedded ? 4 : 5;
-reg [31:0] Registers [1:(2**raddr_w)-1];
+reg [data_w-1:0] Registers [1:(2**addr_w)-1];
 always_ff @(posedge clk) begin
     if(|RfIntf.Rd1Addr) begin
         Registers[RfIntf.Rd1Addr] <= RfIntf.Rd1Data;

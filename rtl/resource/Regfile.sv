@@ -1,16 +1,16 @@
 module Regfile #(
-    parameter embedded = 1
+    parameter addr_w = 5,
+    parameter data_w = 32
 )(
     input clk,
-    rf_drsw_intf.from_rf RfIntf
+    mem_if RegIF
 );
-localparam raddr_w = embedded ? 4 : 5;
-reg [31:0] Registers [1:(2**raddr_w)-1];
+reg [data_w-1:0] Registers [1:(2**addr_w)-1];
 always_ff @(posedge clk) begin
-    if(|RfIntf.RdAddr) begin
-        Registers[RfIntf.RdAddr] <= RfIntf.RdData;
+    if(RegIF.Write[0].Enable & |RegIF.Write[0].Addr) begin
+        Registers[RegIF.Write[0].Addr] <= RegIF.Write[0].Data;
     end
 end
-assign RfIntf.Rs1Data = |RfIntf.Rs1Addr ? Registers[RfIntf.Rs1Addr] : '0;
-assign RfIntf.Rs2Data = |RfIntf.Rs2Addr ? Registers[RfIntf.Rs2Addr] : '0;
+assign RegIF.Read[0].Data = |RegIF.Read[0].Addr ? Registers[RegIF.Read[0].Addr] : 0;//'0;
+assign RegIF.Read[1].Data = |RegIF.Read[1].Addr ? Registers[RegIF.Read[1].Addr] : 0;//'0;
 endmodule

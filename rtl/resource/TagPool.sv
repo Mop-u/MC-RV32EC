@@ -1,19 +1,17 @@
 /*
  * Dual-issue, dual-retire resource tag manager
  */
-module ResourceManager #(
+module TagPool #(
     parameter tag_w = 4
 ) (
     input  clk,
     input  rst,
-    input        [1:0]            Issue,
-    input        [1:0]            Retire,
-    input        [1:0][tag_w-1:0] RetireTag,
-    output logic [1:0]            Available,
-    output logic [1:0][tag_w-1:0] IssueTag,
-    output reg   [depth-1:0]      ResourceStatus // 1 == busy, 0 == idle
+    tag_pool_if PoolIF0,
+    tag_pool_if PoolIF1
 );
 localparam depth = 2**tag_w;
+
+reg [depth-1:0] ResourceStatus; // 1 == busy, 0 == idle
 
 reg [tag_w-1:0] Queue [0:depth-1];
 reg [tag_w-1:0] QueueHead;
@@ -34,17 +32,26 @@ always @(posedge clk, posedge rst) begin
 end
 
 /*
+ * Available logic
+ * Let the coressponding interface know if a tag is available,
+ * taking into account resource contention when there is only 1 tag
+ */
+
+wire IssueSpaceFree = |QueueSize[tag_w:1];
+assign PoolIF0.Issue.Available = (IssueSpaceFree|(QueueSize[0]&ContentionBit));
+assign PoolIF1.Issue.Available = (IssueSpaceFree|(QueueSize[0]&~ContentionBit));
+
+/*
  * IssueEnable logic
  * Resolves resource contention when only one slot is available, and
  * avoids reading from an empty queue.
  */
-wire IssueSpaceFree = |QueueSize[tag_w:1];
 
 wire [1:0] IssueEnable;
 assign IssueEnable[0] =
-    Issue[0]&(IssueSpaceFree|(QueueSize[0]&(ContentionBit|~Issue[1])));
+    PoolIF0.Issue.Enable&PoolIF0.Issue.Available;//(IssueSpaceFree|(QueueSize[0]&(ContentionBit|~PoolIF1.Issue)));
 assign IssueEnable[1] =
-    Issue[1]&(IssueSpaceFree|(QueueSize[0]&(~ContentionBit|~Issue[0])));
+    PoolIF1.Issue.Enable&PoolIF1.Issue.Available;//(IssueSpaceFree|(QueueSize[0]&(~ContentionBit|~PoolIF0.Issue)));
 
 /*
  * RetireEnable logic
@@ -58,15 +65,15 @@ wire SlotRemains = QueueSize[0];
 
 wire [1:0] RetireStatus;
 assign RetireStatus[0] =
-    ResourceStatus[RetireTag[0]];
+    ResourceStatus[PoolIF0.Retire.Tag];
 assign RetireStatus[1] =
-    ResourceStatus[RetireTag[1]];
+    ResourceStatus[PoolIF1.Retire.Tag];
 
 wire [1:0] RetireEnable;
 assign RetireEnable[0] =
-    Retire[0]&RetireStatus[0]&(~RetireSpaceLow|(SlotRemains&(ContentionBit|~Issue[1]|~RetireStatus[1])));
+    PoolIF0.Retire&RetireStatus[0]&(~RetireSpaceLow|(SlotRemains&(ContentionBit|~PoolIF1.Issue.Enable|~RetireStatus[1])));
 assign RetireEnable[1] =
-    Retire[1]&RetireStatus[1]&(~RetireSpaceLow|(SlotRemains&(~ContentionBit|~Issue[0]|~RetireStatus[0])));
+    PoolIF1.Retire&RetireStatus[1]&(~RetireSpaceLow|(SlotRemains&(~ContentionBit|~PoolIF0.Issue.Enable|~RetireStatus[0])));
 
 /*
  * Tag forwarding logic.
@@ -77,29 +84,29 @@ assign RetireEnable[1] =
 logic [1:0] IssuePopEnable;
 always_comb begin
     if(RetireEnable[0]&(~IssueEnable[1]|ContentionBit|RetireEnable[1])) begin
-        IssueTag[0] = RetireTag[0];
+        PoolIF0.Issue.Tag = PoolIF0.Retire.Tag;
         IssuePopEnable[0] = 1'b0;
     end
     else if(RetireEnable[1]&ContentionBit) begin
-        IssueTag[0] = RetireTag[1];
+        PoolIF0.Issue.Tag = PoolIF1.Retire.Tag;
         IssuePopEnable[0] = 1'b0;
     end
     else begin
-        IssueTag[0] = Queue[QueueHead-1];
+        PoolIF0.Issue.Tag = Queue[QueueHead-1];
         IssuePopEnable[0] = IssueEnable[0];
     end
 end
 always_comb begin
     if(RetireEnable[1]&(~IssueEnable[0]|~ContentionBit|RetireEnable[0])) begin
-        IssueTag[1] = RetireTag[1];
+        PoolIF1.Issue.Tag = PoolIF1.Retire.Tag;
         IssuePopEnable[1] = 1'b0;
     end
     else if(RetireEnable[0]&~ContentionBit) begin
-        IssueTag[1] = RetireTag[0];
+        PoolIF1.Issue.Tag = PoolIF0.Retire.Tag;
         IssuePopEnable[1] = 1'b0;
     end
     else begin
-        IssueTag[1] = Queue[QueueTail+1];
+        PoolIF1.Issue.Tag = Queue[QueueTail+1];
         IssuePopEnable[1] = IssueEnable[1];
     end
 end
@@ -136,18 +143,18 @@ always_ff @(posedge clk, posedge rst) begin
     end
     else begin
         if(RetirePushEnable[0]) begin
-            Queue[QueueHead] <= RetireTag[0];
-            ResourceStatus[RetireTag[0]] <= 1'b0;
+            Queue[QueueHead] <= PoolIF0.Retire.Tag;
+            ResourceStatus[PoolIF0.Retire.Tag] <= 1'b0;
         end
         if(RetirePushEnable[1]) begin
-            Queue[QueueTail] <= RetireTag[1];
-            ResourceStatus[RetireTag[1]] <= 1'b0;
+            Queue[QueueTail] <= PoolIF1.Retire.Tag;
+            ResourceStatus[PoolIF1.Retire.Tag] <= 1'b0;
         end
         if(IssuePopEnable[0]) begin
-            ResourceStatus[IssueTag[0]] <= 1'b1;
+            ResourceStatus[PoolIF0.Issue.Tag] <= 1'b1;
         end
         if(IssuePopEnable[1]) begin
-            ResourceStatus[IssueTag[1]] <= 1'b1;
+            ResourceStatus[PoolIF1.Issue.Tag] <= 1'b1;
         end
         QueueTail <= QueueTail + TailUpdate;
         QueueHead <= QueueHead + HeadUpdate;

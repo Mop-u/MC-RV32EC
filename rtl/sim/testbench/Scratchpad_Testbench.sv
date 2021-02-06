@@ -26,6 +26,13 @@ BinaryLoader binary_loader (
    \------------------------------------------------------------------------------/
 */
 
+mem_if #(
+    .read_ports (2),
+    .write_ports(1),
+    .addr_w     (5),
+    .data_w     (32)
+) RfIf();
+
 integer Cycle = 0;
 integer Stop = 2048;
 always_ff @(posedge clk, posedge rst) begin
@@ -38,16 +45,18 @@ always_ff @(posedge clk) begin
     $display("PC: %h",InstructionAddress);
     $display("EncALUCat %b, EncALUOp %b, ImmEN %b", CtrlALUOp[3:2], CtrlALUOp[1:0], CtrlALUImm);
     if(CtrlALUImm) $display("Imm => %h",DecodedImmALU);
-    $display("x%d => %h",RfIntf.Rs1Addr,RfIntf.Rs1Data);
-    $display("x%d => %h",RfIntf.Rs2Addr,RfIntf.Rs2Data);
-    $display("x%d <= %h",RfIntf.RdAddr, RfIntf.RdData);
+    $display("x%d => %h",RfIf.Read[0].Addr, RfIf.Read[0].Data);
+    $display("x%d => %h",RfIf.Read[1].Addr, RfIf.Read[1].Data);
+    $display("x%d <= %h",RfIf.Write[0].Addr,RfIf.Write[0].Data);
     if(CtrlPCMode==PCBRCH) case(IntegerUnitFlag)
         1'b1: $display("Branch Taken");
         1'b0: $display("Branch Not Taken");
     endcase
 end
 
-rf_drsw_intf #(.embedded(0)) RfIntf();
+assign RfIf.Read[0].Enable = 1;
+assign RfIf.Read[1].Enable = 1;
+assign RfIf.Write[0].Enable = 1;
 
 wire [31:0] DecodedImmALU;
 wire [31:0] DecodedImmPC;
@@ -62,9 +71,9 @@ wire        ValidDecode_C;
 MainDecode #(.embedded(0)) 
 decoder (
     .InstructionIn   (Inst),
-    .Rs1             (RfIntf.Rs1Addr),
-    .Rs2             (RfIntf.Rs2Addr),
-    .Rd              (RfIntf.RdAddr),
+    .Rs1             (RfIf.Read[0].Addr),
+    .Rs2             (RfIf.Read[1].Addr),
+    .Rd              (RfIf.Write[0].Addr),
     .ImmALU          (DecodedImmALU),
     .ImmPC           (DecodedImmPC),
     .CtrlLSU         (CtrlLSU),
@@ -85,31 +94,25 @@ ProgramCounter program_counter (
     .Compressed    (ValidDecode_C),
     .CtrlPCMode    (CtrlPCMode),
     .CtrlMultiCycle(CtrlMultiCycle),
-    .RegDirect     (RfIntf.Rs1Data),
+    .RegDirect     (RfIf.Read[0].Data),
     .ImmOffset     (DecodedImmPC),
     .Flag          (IntegerUnitFlag),
     .AddressOut    (InstructionAddress),
     .LinkOut       (LinkAddress)
 );
-assign RfIntf.RdData = CtrlPCWriteback ? LinkAddress :
+assign RfIf.Write[0].Data = CtrlPCWriteback ? LinkAddress :
              (CtrlALUOp[3:2] == ALUSH) ? ShiftUnitRd 
                                        : IntegerUnitRd;
-Regfile #(.embedded(0))
+Regfile #(.addr_w(5),.data_w(32))
 regfile (
-    .clk(clk),
-    .RfIntf(RfIntf)//,
-    //.RdAddr (RfIntf.RdAddr),
-    //.Rs1Addr(RfIntf.Rs1Addr),
-    //.Rs2Addr(RfIntf.Rs2Addr),
-    //.RdData (RfIntf.RdData),
-    //.Rs1Data(RfIntf.Rs1Data),
-    //.Rs2Data(RfIntf.Rs2Data)
+    .clk (clk),
+    .RfIf(RfIf)
 );
-wire [31:0] Rs2IntMux = CtrlALUImm ? DecodedImmALU : RfIntf.Rs2Data;
+wire [31:0] Rs2IntMux = CtrlALUImm ? DecodedImmALU : RfIf.Read[1].Data;
 wire [31:0] IntegerUnitRd;
 wire        IntegerUnitFlag;
 IntegerUnit int_unit (
-    .Rs1        (RfIntf.Rs1Data),
+    .Rs1        (RfIf.Read[0].Data),
     .Rs2        (Rs2IntMux),
     .CtrlALUOp  (CtrlALUOp),
     .CtrlFlagInv(CtrlFlagInv),
@@ -118,7 +121,7 @@ IntegerUnit int_unit (
 );
 wire [31:0] ShiftUnitRd;
 ShiftUnit shift_unit (
-    .Word      (RfIntf.Rs1Data),
+    .Word      (RfIf.Read[0].Data),
     .Shamt     (Rs2IntMux[4:0]),
     .SignExtend(CtrlALUOp[0]),
     .ShiftRight(CtrlALUOp[1]),

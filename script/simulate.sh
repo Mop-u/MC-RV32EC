@@ -13,7 +13,7 @@ else
     tmp="$mypath/../tmp"
     rtl="$mypath/../rtl"
     rm $tmp/*
-    incdirlist=$(find $rtl/ -not -path */testbench -and -type d -exec echo -I {} \; )
+    incdirlist=$(find $rtl/ -not -path */testbench -and -type d -exec echo "-I {}" \; )
     filelist="$(find $rtl/ -name $1) $(find $rtl/ -not -path */testbench/* -and \( -iname *.v -o -iname *.vh -o -iname *.sv \) )"
     sv2v $incdirlist $filelist > "$tmp/$toplevel.sv"
     cp $mypath/../rom/rom.bin $tmp/rom.bin
